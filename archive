@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S.H.A.D.O.W. - Terminal d'Espionnage</title>
+    <style>
+        body { background: #0a0a0a; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; padding: 50px; }
+        .terminal { border: 1px solid #00ff41; padding: 20px; box-shadow: 0 0 15px #00ff41; max-width: 500px; width: 100%; }
+        input, textarea { width: 100%; background: #000; border: 1px solid #00ff41; color: #00ff41; margin-bottom: 10px; padding: 5px; box-sizing: border-box; }
+        button { background: #00ff41; color: #000; border: none; padding: 10px; cursor: pointer; width: 100%; font-weight: bold; }
+        button:hover { background: #008f11; }
+        #status { margin-top: 15px; font-size: 0.8em; }
+    </style>
+</head>
+<body>
+
+<div class="terminal">
+    <h2>[ TRANSMISSION SECRÈTE ]</h2>
+    <input type="text" id="agentName" placeholder="Nom de code de l'agent...">
+    <textarea id="reportContent" rows="5" placeholder="Détails de la mission..."></textarea>
+    <button id="sendBtn">ENVOYER LE RAPPORT</button>
+    <div id="status">En attente de connexion...</div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+
+  // Ta config fournie
+  const firebaseConfig = {
+    apiKey: "AIzaSyCGx4MMRQsw7T4jTr-46dXl9tWclPw2-9k",
+    authDomain: "archive-4db70.firebaseapp.com",
+    projectId: "archive-4db70",
+    storageBucket: "archive-4db70.firebasestorage.app",
+    messagingSenderId: "725731957558",
+    appId: "1:725731957558:web:491f93d90712820a6cb197"
+  };
+
+  // Initialisation
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const statusDiv = document.getElementById('status');
+
+  statusDiv.innerText = "> Terminal prêt. Liaison sécurisée établie.";
+
+  // Fonction pour envoyer les données
+  document.getElementById('sendBtn').addEventListener('click', async () => {
+    const agent = document.getElementById('agentName').value;
+    const report = document.getElementById('reportContent').value;
+
+    if(!agent || !report) {
+        statusDiv.innerText = "> ERREUR : Champs manquants.";
+        return;
+    }
+
+    statusDiv.innerText = "> Chiffrement en cours...";
+
+    try {
+      await addDoc(collection(db, "rapports_secrets"), {
+        agent: agent,
+        contenu: report,
+        timestamp: serverTimestamp()
+      });
+      statusDiv.innerText = "> TRANSMISSION RÉUSSIE. Rapport archivé.";
+      document.getElementById('agentName').value = "";
+      document.getElementById('reportContent').value = "";
+    } catch (e) {
+      statusDiv.innerText = "> ERREUR CRITIQUE : " + e.message;
+    }
+  });
+</script>
+
+</body>
+</html>
