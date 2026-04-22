@@ -1,75 +1,2549 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>S.H.A.D.O.W. - Terminal d'Espionnage</title>
-    <style>
-        body { background: #0a0a0a; color: #00ff41; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; padding: 50px; }
-        .terminal { border: 1px solid #00ff41; padding: 20px; box-shadow: 0 0 15px #00ff41; max-width: 500px; width: 100%; }
-        input, textarea { width: 100%; background: #000; border: 1px solid #00ff41; color: #00ff41; margin-bottom: 10px; padding: 5px; box-sizing: border-box; }
-        button { background: #00ff41; color: #000; border: none; padding: 10px; cursor: pointer; width: 100%; font-weight: bold; }
-        button:hover { background: #008f11; }
-        #status { margin-top: 15px; font-size: 0.8em; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loup-Garou : L'Éveil des Ombres</title>
+
+<!-- ============================================================
+  CONFIGURATION TEMPS-RÉEL (Ably.io)
+  1. Créez un compte gratuit sur https://ably.com
+  2. Obtenez votre clé API dans Dashboard > API Keys
+  3. Remplacez "VOTRE_CLE_API_ABLY" ci-dessous par votre vraie clé
+  4. La clé ressemble à : "xVLbyA.xxxxxxxx:xxxxxxxxxxxxxxxxxxxxxxxxxx"
+  IMPORTANT : Ne partagez jamais votre clé dans un dépôt public !
+  En production, utilisez l'authentification par token Ably.
+  ============================================================ -->
+<script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
+
+<style>
+/* ============================================================
+   VARIABLES GLOBALES — THÈME DÉMONIAQUE SOMBRE
+   ============================================================ */
+:root {
+  --noir:           #0a0a0f;
+  --noir-profond:   #050508;
+  --charbon:        #111118;
+  --charbon-clair:  #1a1a26;
+  --rouge-sang:     #8b0000;
+  --rouge-vif:      #c0392b;
+  --rouge-lueur:    #e74c3c;
+  --or-terni:       #b8960c;
+  --or-clair:       #d4af37;
+  --or-pale:        #f0d060;
+  --brume:          rgba(139,0,0,0.08);
+  --texte-principal:#e8d5c4;
+  --texte-doux:     #a89070;
+  --texte-ombre:    #6a5040;
+  --bordure-or:     rgba(180,140,12,0.4);
+  --bordure-rouge:  rgba(139,0,0,0.6);
+  --ombre-rouge:    0 0 20px rgba(139,0,0,0.5);
+  --ombre-or:       0 0 15px rgba(184,150,12,0.4);
+  --rayon:          4px;
+}
+
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background-color: var(--noir-profond);
+  color: var(--texte-principal);
+  font-family: 'Georgia', 'Times New Roman', serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* ============================================================
+   ANIMATION BRUME DE FOND
+   ============================================================ */
+.fog-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.fog-layer {
+  position: absolute;
+  width: 200%;
+  height: 100%;
+  background: radial-gradient(ellipse 60% 40% at 50% 50%,
+    rgba(139,0,0,0.12) 0%,
+    rgba(100,0,0,0.06) 40%,
+    transparent 70%);
+  animation: fogDrift 18s ease-in-out infinite alternate;
+  opacity: 0.7;
+}
+
+.fog-layer:nth-child(2) {
+  animation-duration: 25s;
+  animation-direction: alternate-reverse;
+  background: radial-gradient(ellipse 80% 60% at 30% 70%,
+    rgba(80,0,0,0.1) 0%, transparent 60%);
+}
+
+.fog-layer:nth-child(3) {
+  animation-duration: 32s;
+  background: radial-gradient(ellipse 50% 80% at 70% 30%,
+    rgba(120,0,0,0.08) 0%, transparent 55%);
+}
+
+@keyframes fogDrift {
+  from { transform: translateX(-10%) scale(1); }
+  to   { transform: translateX(10%) scale(1.05); }
+}
+
+/* Particules flottantes */
+.particle {
+  position: fixed;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+  animation: particleFloat linear infinite;
+}
+
+@keyframes particleFloat {
+  0%   { transform: translateY(100vh) translateX(0); opacity: 0; }
+  10%  { opacity: 0.6; }
+  90%  { opacity: 0.3; }
+  100% { transform: translateY(-10vh) translateX(var(--drift)); opacity: 0; }
+}
+
+/* Motif de fond — sigils répétés */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 49px, rgba(139,0,0,0.04) 50px),
+    repeating-linear-gradient(90deg, transparent, transparent 49px, rgba(139,0,0,0.04) 50px);
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ============================================================
+   WRAPPER PRINCIPAL
+   ============================================================ */
+#app-wrapper {
+  position: relative;
+  z-index: 10;
+  min-height: 100vh;
+}
+
+/* ============================================================
+   HEADER — TITRE PRINCIPAL
+   ============================================================ */
+.site-header {
+  text-align: center;
+  padding: 2.5rem 1rem 1.5rem;
+  position: relative;
+}
+
+.site-header::after {
+  content: '';
+  display: block;
+  width: 60%;
+  max-width: 400px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--or-terni), transparent);
+  margin: 1rem auto 0;
+}
+
+.titre-principal {
+  font-size: clamp(1.6rem, 5vw, 3.2rem);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rouge-sang);
+  text-shadow: 0 0 30px rgba(139,0,0,0.7), 0 0 60px rgba(139,0,0,0.3);
+  line-height: 1.1;
+}
+
+.sous-titre {
+  font-size: clamp(0.75rem, 2vw, 1rem);
+  color: var(--or-terni);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  margin-top: 0.5rem;
+  opacity: 0.8;
+}
+
+/* ============================================================
+   BORDURES CALLIGRAPHIÉES — COMPOSANT RÉUTILISABLE
+   ============================================================ */
+.cadre-calligraphie {
+  position: relative;
+  border: 1px solid var(--bordure-or);
+  border-radius: var(--rayon);
+}
+
+.cadre-calligraphie::before,
+.cadre-calligraphie::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-color: var(--or-terni);
+  border-style: solid;
+}
+
+.cadre-calligraphie::before {
+  top: -1px; left: -1px;
+  border-width: 2px 0 0 2px;
+}
+
+.cadre-calligraphie::after {
+  bottom: -1px; right: -1px;
+  border-width: 0 2px 2px 0;
+}
+
+/* ============================================================
+   ÉCRANS (vues de l'application)
+   ============================================================ */
+.ecran {
+  display: none;
+  padding: 1rem;
+  max-width: 960px;
+  margin: 0 auto;
+  animation: fonduEntree 0.6s ease;
+}
+
+.ecran.actif { display: block; }
+
+@keyframes fonduEntree {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================
+   ÉCRAN D'ACCUEIL
+   ============================================================ */
+.accueil-centre {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  padding-top: 1rem;
+}
+
+.logo-demon {
+  font-size: 5rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 20px rgba(139,0,0,0.8));
+  animation: pulseLogo 3s ease-in-out infinite;
+}
+
+@keyframes pulseLogo {
+  0%,100% { filter: drop-shadow(0 0 20px rgba(139,0,0,0.8)); transform: scale(1); }
+  50%      { filter: drop-shadow(0 0 40px rgba(139,0,0,1)); transform: scale(1.05); }
+}
+
+.separateur-decoratif {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  max-width: 420px;
+  color: var(--or-terni);
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+}
+
+.separateur-decoratif::before,
+.separateur-decoratif::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--bordure-or));
+}
+
+.separateur-decoratif::after {
+  background: linear-gradient(90deg, var(--bordure-or), transparent);
+}
+
+.panneau-accueil {
+  width: 100%;
+  max-width: 440px;
+  background: rgba(10,10,15,0.85);
+  backdrop-filter: blur(4px);
+  padding: 2rem;
+}
+
+.panneau-accueil h2 {
+  text-align: center;
+  color: var(--or-terni);
+  font-size: 1rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 1.5rem;
+}
+
+.champ-groupe {
+  margin-bottom: 1.2rem;
+}
+
+.champ-groupe label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--texte-doux);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+.champ-saisie {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  background: rgba(26,26,38,0.9);
+  border: 1px solid var(--bordure-rouge);
+  border-radius: var(--rayon);
+  color: var(--texte-principal);
+  font-family: inherit;
+  font-size: 1rem;
+  transition: border-color 0.3s, box-shadow 0.3s;
+  outline: none;
+}
+
+.champ-saisie:focus {
+  border-color: var(--rouge-vif);
+  box-shadow: var(--ombre-rouge);
+}
+
+.champ-saisie::placeholder { color: var(--texte-ombre); }
+
+/* Boutons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: var(--rayon);
+  font-family: inherit;
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.25s;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.05);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.btn:hover::after { opacity: 1; }
+.btn:active { transform: scale(0.97); }
+
+.btn-primaire {
+  width: 100%;
+  background: var(--rouge-sang);
+  color: var(--texte-principal);
+  box-shadow: var(--ombre-rouge);
+}
+
+.btn-primaire:hover {
+  background: var(--rouge-vif);
+  box-shadow: 0 0 30px rgba(192,57,43,0.6);
+}
+
+.btn-or {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--or-terni);
+  color: var(--or-clair);
+}
+
+.btn-or:hover {
+  background: rgba(180,140,12,0.1);
+  box-shadow: var(--ombre-or);
+}
+
+.btn-danger {
+  background: rgba(139,0,0,0.3);
+  border: 1px solid var(--rouge-sang);
+  color: var(--rouge-lueur);
+  padding: 0.4rem 0.8rem;
+  font-size: 0.75rem;
+}
+
+.btn-danger:hover { background: rgba(139,0,0,0.5); }
+
+.btn-neutre {
+  background: rgba(26,26,38,0.8);
+  border: 1px solid var(--bordure-or);
+  color: var(--texte-doux);
+}
+
+.btn-neutre:hover { border-color: var(--or-terni); color: var(--or-clair); }
+
+/* ============================================================
+   LISTE DES JOUEURS DANS L'ACCUEIL
+   ============================================================ */
+.liste-joueurs-accueil {
+  margin-top: 1.5rem;
+  border-top: 1px solid var(--bordure-rouge);
+  padding-top: 1rem;
+}
+
+.liste-joueurs-accueil h3 {
+  font-size: 0.8rem;
+  letter-spacing: 0.15em;
+  color: var(--texte-doux);
+  text-transform: uppercase;
+  margin-bottom: 0.8rem;
+}
+
+.item-joueur-accueil {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.6rem;
+  background: rgba(26,26,38,0.5);
+  border-left: 2px solid var(--rouge-sang);
+  margin-bottom: 0.4rem;
+  border-radius: 0 var(--rayon) var(--rayon) 0;
+  font-size: 0.9rem;
+  animation: glisserEntree 0.3s ease;
+}
+
+@keyframes glisserEntree {
+  from { transform: translateX(-10px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+.pastille-mj {
+  font-size: 0.65rem;
+  background: var(--rouge-sang);
+  color: var(--or-pale);
+  padding: 0.1rem 0.4rem;
+  border-radius: 2px;
+  letter-spacing: 0.05em;
+}
+
+/* ============================================================
+   PANEL MJ (Maître du Jeu)
+   ============================================================ */
+.panel-mj {
+  background: rgba(20,10,10,0.95);
+  border: 1px solid var(--rouge-sang);
+  border-radius: var(--rayon);
+  padding: 1.2rem;
+  margin-bottom: 1.5rem;
+}
+
+.panel-mj-titre {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.2em;
+  color: var(--rouge-lueur);
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--bordure-rouge);
+}
+
+.panel-mj-titre::before { content: '👁'; font-size: 1rem; }
+
+.grille-controles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.btn-controle {
+  padding: 0.6rem 0.8rem;
+  font-size: 0.75rem;
+  text-align: center;
+  background: rgba(10,10,15,0.8);
+  border: 1px solid var(--bordure-rouge);
+  color: var(--texte-principal);
+  border-radius: var(--rayon);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  letter-spacing: 0.05em;
+}
+
+.btn-controle:hover {
+  border-color: var(--rouge-vif);
+  background: rgba(139,0,0,0.2);
+  box-shadow: var(--ombre-rouge);
+}
+
+.btn-controle.actif {
+  background: var(--rouge-sang);
+  border-color: var(--rouge-vif);
+}
+
+.btn-controle:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* Liste joueurs MJ avec rôles visibles */
+.liste-mj-joueurs { margin-top: 1rem; }
+
+.ligne-mj-joueur {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid rgba(139,0,0,0.15);
+}
+
+.ligne-mj-joueur:last-child { border-bottom: none; }
+
+.mj-joueur-nom { font-size: 0.9rem; }
+
+.badge-role {
+  font-size: 0.65rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 2px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.role-loup    { background: rgba(139,0,0,0.4); color: #ff6b6b; border: 1px solid var(--rouge-sang); }
+.role-blanc   { background: rgba(200,200,200,0.1); color: #ddd; border: 1px solid rgba(200,200,200,0.3); }
+.role-voyante { background: rgba(100,0,150,0.3); color: #c890ff; border: 1px solid rgba(150,0,200,0.4); }
+.role-sorciere{ background: rgba(0,80,0,0.3); color: #90ff90; border: 1px solid rgba(0,150,0,0.4); }
+.role-garde   { background: rgba(0,60,120,0.3); color: #90c0ff; border: 1px solid rgba(0,100,200,0.4); }
+.role-villageois { background: rgba(80,60,20,0.3); color: #d4af37; border: 1px solid rgba(150,120,30,0.4); }
+
+/* ============================================================
+   ZONE DE JEU PRINCIPALE
+   ============================================================ */
+.zone-jeu {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 1rem;
+}
+
+@media (max-width: 700px) {
+  .zone-jeu { grid-template-columns: 1fr; }
+}
+
+/* Centre de jeu */
+.centre-jeu {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ============================================================
+   AFFICHAGE DE L'ÉTAT DU JEU — TEXTE CENTRAL
+   ============================================================ */
+.etat-jeu-banniere {
+  text-align: center;
+  padding: 1.5rem;
+  position: relative;
+  min-height: 100px;
+}
+
+.etat-jeu-texte {
+  font-size: clamp(1rem, 3vw, 1.5rem);
+  color: var(--or-clair);
+  text-shadow: var(--ombre-or);
+  letter-spacing: 0.05em;
+  animation: pulseTexte 2s ease-in-out infinite;
+  line-height: 1.4;
+}
+
+@keyframes pulseTexte {
+  0%,100% { text-shadow: 0 0 10px rgba(212,175,55,0.4); }
+  50%      { text-shadow: 0 0 25px rgba(212,175,55,0.8), 0 0 50px rgba(212,175,55,0.3); }
+}
+
+.etat-jeu-sous-texte {
+  font-size: 0.85rem;
+  color: var(--texte-doux);
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
+/* Timer */
+.timer-cercle {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin: 0.5rem auto;
+}
+
+.timer-svg { transform: rotate(-90deg); }
+
+.timer-piste {
+  fill: none;
+  stroke: rgba(139,0,0,0.2);
+  stroke-width: 4;
+}
+
+.timer-barre {
+  fill: none;
+  stroke: var(--rouge-sang);
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s linear, stroke 0.5s;
+  stroke-dasharray: 226;
+  stroke-dashoffset: 0;
+}
+
+.timer-nombre {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: var(--rouge-lueur);
+}
+
+/* ============================================================
+   CARTE DE RÔLE — ANIMATION PRINCIPALE
+   ============================================================ */
+.zone-carte-role {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 180px;
+  position: relative;
+}
+
+.carte-role {
+  width: 160px;
+  height: 220px;
+  position: relative;
+  cursor: pointer;
+  perspective: 800px;
+  flex-shrink: 0;
+}
+
+.carte-role-interieur {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.6s ease;
+}
+
+.carte-role:hover .carte-role-interieur {
+  transform: rotateY(180deg);
+}
+
+.carte-face, .carte-dos {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  text-align: center;
+}
+
+.carte-face {
+  background: linear-gradient(160deg, #1a0a0a 0%, #0d0d1a 100%);
+  border: 2px solid var(--or-terni);
+  box-shadow: 0 0 20px rgba(139,0,0,0.4), inset 0 0 20px rgba(0,0,0,0.5);
+}
+
+.carte-dos {
+  background: linear-gradient(160deg, #0d0a1a 0%, #1a0a0a 100%);
+  border: 2px solid var(--bordure-rouge);
+  box-shadow: var(--ombre-rouge);
+  transform: rotateY(180deg);
+  font-size: 0.75rem;
+  color: var(--texte-doux);
+  padding: 0.8rem;
+  overflow: hidden;
+}
+
+.carte-role-icone {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+  filter: drop-shadow(0 0 8px rgba(212,175,55,0.6));
+  animation: iconePulse 3s ease-in-out infinite;
+}
+
+@keyframes iconePulse {
+  0%,100% { filter: drop-shadow(0 0 8px rgba(212,175,55,0.6)); }
+  50%      { filter: drop-shadow(0 0 16px rgba(212,175,55,1)); }
+}
+
+.carte-role-nom {
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: var(--or-clair);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.carte-role-type {
+  font-size: 0.65rem;
+  color: var(--texte-ombre);
+  margin-top: 0.2rem;
+  letter-spacing: 0.1em;
+}
+
+/* Animation d'entrée de la carte */
+@keyframes carteArrivee {
+  0%   { transform: scale(0.2) translateY(-50vh); opacity: 0; }
+  60%  { transform: scale(1.15); }
+  75%  { transform: scale(0.95) rotate(-2deg); }
+  85%  { transform: scale(1.05) rotate(1deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.carte-role.anime { animation: carteArrivee 1.2s cubic-bezier(0.22,1,0.36,1) forwards; }
+
+/* Particules autour de la carte */
+.particule-carte {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--or-terni);
+  pointer-events: none;
+  animation: particuleCarte 1s ease-out forwards;
+}
+
+@keyframes particuleCarte {
+  0%   { opacity: 1; transform: translate(0,0) scale(1); }
+  100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0); }
+}
+
+/* ============================================================
+   COLONNE DROITE — LISTE JOUEURS EN JEU
+   ============================================================ */
+.colonne-joueurs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.colonne-joueurs-titre {
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  color: var(--texte-doux);
+  text-transform: uppercase;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--bordure-rouge);
+}
+
+.item-joueur-jeu {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.7rem;
+  background: rgba(10,10,15,0.6);
+  border-radius: var(--rayon);
+  border: 1px solid rgba(139,0,0,0.2);
+  transition: border-color 0.3s;
+  position: relative;
+}
+
+.item-joueur-jeu:hover { border-color: var(--rouge-sang); }
+
+.joueur-vivant  { opacity: 1; }
+.joueur-mort    { opacity: 0.4; text-decoration: line-through; }
+
+.dot-statut {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-vivant { background: #2ecc71; box-shadow: 0 0 6px rgba(46,204,113,0.6); }
+.dot-mort   { background: var(--rouge-sang); }
+
+.joueur-nom-jeu { font-size: 0.9rem; flex: 1; }
+
+/* ============================================================
+   LOG DES ÉVÉNEMENTS
+   ============================================================ */
+.log-evenements {
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 0.8rem;
+  background: rgba(5,5,8,0.8);
+  border-radius: var(--rayon);
+  border: 1px solid var(--bordure-rouge);
+  scrollbar-width: thin;
+  scrollbar-color: var(--rouge-sang) var(--charbon);
+}
+
+.log-evenements::-webkit-scrollbar { width: 4px; }
+.log-evenements::-webkit-scrollbar-track { background: var(--charbon); }
+.log-evenements::-webkit-scrollbar-thumb { background: var(--rouge-sang); }
+
+.log-entree {
+  font-size: 0.8rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid rgba(139,0,0,0.1);
+  color: var(--texte-doux);
+  animation: glisserEntree 0.3s ease;
+}
+
+.log-entree:last-child { border-bottom: none; }
+.log-entree .horodatage { color: var(--texte-ombre); margin-right: 0.4rem; }
+.log-entree.important { color: var(--or-clair); }
+.log-entree.danger    { color: var(--rouge-lueur); }
+
+/* ============================================================
+   ZONE D'ACTION NOCTURNE
+   ============================================================ */
+.zone-action-nuit {
+  padding: 1rem;
+  background: rgba(10,5,5,0.9);
+  border: 1px solid var(--rouge-sang);
+  border-radius: var(--rayon);
+  text-align: center;
+  display: none;
+}
+
+.zone-action-nuit.active { display: block; }
+
+.zone-action-nuit h3 {
+  font-size: 0.9rem;
+  color: var(--rouge-lueur);
+  letter-spacing: 0.1em;
+  margin-bottom: 0.8rem;
+  text-transform: uppercase;
+}
+
+.grille-cibles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+}
+
+.btn-cible {
+  padding: 0.5rem 0.6rem;
+  background: rgba(26,10,10,0.8);
+  border: 1px solid var(--bordure-rouge);
+  color: var(--texte-principal);
+  border-radius: var(--rayon);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+}
+
+.btn-cible:hover {
+  background: rgba(139,0,0,0.3);
+  border-color: var(--rouge-vif);
+}
+
+.btn-cible.selectionne {
+  background: var(--rouge-sang);
+  border-color: var(--rouge-vif);
+  box-shadow: var(--ombre-rouge);
+}
+
+/* ============================================================
+   VOTE / DÉBAT
+   ============================================================ */
+.zone-vote {
+  padding: 1rem;
+  background: rgba(10,8,5,0.9);
+  border: 1px solid var(--bordure-or);
+  border-radius: var(--rayon);
+  display: none;
+}
+
+.zone-vote.active { display: block; }
+
+.zone-vote h3 {
+  font-size: 0.9rem;
+  color: var(--or-clair);
+  letter-spacing: 0.1em;
+  margin-bottom: 0.8rem;
+  text-transform: uppercase;
+}
+
+.barre-vote {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.barre-vote-fond {
+  flex: 1;
+  height: 8px;
+  background: rgba(26,26,38,0.8);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.barre-vote-remplissage {
+  height: 100%;
+  background: var(--rouge-sang);
+  transition: width 0.5s ease;
+  box-shadow: 0 0 6px rgba(139,0,0,0.5);
+}
+
+/* ============================================================
+   ÉCRAN NOIR — SOMMEIL FORCÉ
+   ============================================================ */
+#ecran-nuit {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 9999;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+#ecran-nuit.actif { display: flex; }
+
+.lune-icone {
+  font-size: 4rem;
+  animation: luneRotation 8s linear infinite;
+  filter: drop-shadow(0 0 20px rgba(100,100,200,0.5));
+}
+
+@keyframes luneRotation {
+  from { transform: rotate(0deg) scale(1); }
+  50%  { transform: rotate(180deg) scale(1.1); }
+  to   { transform: rotate(360deg) scale(1); }
+}
+
+.texte-nuit {
+  color: rgba(100,100,180,0.7);
+  font-size: 1.1rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  animation: texteNuitFade 3s ease-in-out infinite;
+}
+
+@keyframes texteNuitFade {
+  0%,100% { opacity: 0.4; }
+  50%      { opacity: 0.9; }
+}
+
+/* ============================================================
+   NOTIFICATION TOAST
+   ============================================================ */
+#toast-container {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.toast {
+  padding: 0.7rem 1rem;
+  background: rgba(10,10,15,0.95);
+  border-left: 3px solid var(--rouge-sang);
+  border-radius: 0 var(--rayon) var(--rayon) 0;
+  font-size: 0.85rem;
+  color: var(--texte-principal);
+  max-width: 280px;
+  animation: toastEntree 0.3s ease;
+  backdrop-filter: blur(4px);
+}
+
+.toast.or { border-left-color: var(--or-terni); color: var(--or-clair); }
+.toast.vert { border-left-color: #2ecc71; }
+
+@keyframes toastEntree {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+/* ============================================================
+   ÉCRAN FIN DE PARTIE
+   ============================================================ */
+.ecran-fin {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+.victoire-titre {
+  font-size: clamp(2rem, 6vw, 4rem);
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  animation: victoireAnim 2s ease-in-out infinite;
+}
+
+@keyframes victoireAnim {
+  0%,100% { text-shadow: 0 0 20px currentColor; }
+  50%      { text-shadow: 0 0 60px currentColor, 0 0 100px currentColor; }
+}
+
+.victoire-loups    { color: var(--rouge-sang); }
+.victoire-village  { color: var(--or-clair); }
+
+/* ============================================================
+   CONTRÔLES AUDIO
+   ============================================================ */
+.barre-audio {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.8rem;
+  background: rgba(5,5,8,0.8);
+  border-top: 1px solid var(--bordure-rouge);
+  font-size: 0.75rem;
+  color: var(--texte-ombre);
+}
+
+.barre-audio button {
+  background: none;
+  border: none;
+  color: var(--texte-doux);
+  cursor: pointer;
+  font-size: 1rem;
+  transition: color 0.2s;
+  padding: 0.2rem;
+}
+
+.barre-audio button:hover { color: var(--or-clair); }
+
+.indicateur-piste {
+  flex: 1;
+  font-size: 0.7rem;
+  color: var(--texte-ombre);
+  letter-spacing: 0.08em;
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   BADGE PHASE
+   ============================================================ */
+.badge-phase {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.phase-nuit  { background: rgba(20,20,60,0.8); border: 1px solid rgba(100,100,200,0.4); color: #a0a0ff; }
+.phase-jour  { background: rgba(60,40,0,0.8); border: 1px solid rgba(200,150,0,0.4); color: var(--or-clair); }
+.phase-vote  { background: rgba(60,20,0,0.8); border: 1px solid rgba(200,60,0,0.4); color: #ff8060; }
+
+/* ============================================================
+   RESPONSIVE MOBILE
+   ============================================================ */
+@media (max-width: 600px) {
+  .panneau-accueil { padding: 1.2rem; }
+  .grille-controles { grid-template-columns: 1fr 1fr; }
+}
+
+/* ============================================================
+   BARRE DE STATUT EN BAS
+   ============================================================ */
+.statut-barre {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: rgba(5,5,8,0.95);
+  border-top: 1px solid var(--bordure-rouge);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 1rem;
+  font-size: 0.75rem;
+  color: var(--texte-ombre);
+  backdrop-filter: blur(4px);
+}
+
+.statut-connexion {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dot-connexion {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2ecc71;
+  animation: clignoter 2s infinite;
+}
+
+.dot-connexion.deconnecte { background: var(--rouge-sang); animation: none; }
+
+@keyframes clignoter {
+  0%,100% { opacity: 1; }
+  50%      { opacity: 0.3; }
+}
+
+/* Espacement bas de page pour la barre */
+#app-wrapper { padding-bottom: 40px; }
+
+</style>
 </head>
 <body>
 
-<div class="terminal">
-    <h2>[ TRANSMISSION SECRÈTE ]</h2>
-    <input type="text" id="agentName" placeholder="Nom de code de l'agent...">
-    <textarea id="reportContent" rows="5" placeholder="Détails de la mission..."></textarea>
-    <button id="sendBtn">ENVOYER LE RAPPORT</button>
-    <div id="status">En attente de connexion...</div>
+<!-- ============================================================
+   COUCHE DE BRUME EN FOND
+   ============================================================ -->
+<div class="fog-container" aria-hidden="true">
+  <div class="fog-layer"></div>
+  <div class="fog-layer"></div>
+  <div class="fog-layer"></div>
 </div>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+<!-- ============================================================
+   ÉCRAN NOIR (SOMMEIL FORCÉ — NUIT)
+   ============================================================ -->
+<div id="ecran-nuit" role="status" aria-live="polite">
+  <div class="lune-icone">🌑</div>
+  <div class="texte-nuit">Les ombres règnent sur le sanctuaire...</div>
+  <div id="texte-phase-nuit" style="font-size:0.85rem;color:rgba(150,120,200,0.6);letter-spacing:0.15em;"></div>
+</div>
 
-  // Ta config fournie
-  const firebaseConfig = {
-    apiKey: "AIzaSyCGx4MMRQsw7T4jTr-46dXl9tWclPw2-9k",
-    authDomain: "archive-4db70.firebaseapp.com",
-    projectId: "archive-4db70",
-    storageBucket: "archive-4db70.firebasestorage.app",
-    messagingSenderId: "725731957558",
-    appId: "1:725731957558:web:491f93d90712820a6cb197"
-  };
+<!-- ============================================================
+   CONTENEUR DE NOTIFICATIONS
+   ============================================================ -->
+<div id="toast-container" aria-live="polite" aria-atomic="true"></div>
 
-  // Initialisation
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  const statusDiv = document.getElementById('status');
+<!-- ============================================================
+   APPLICATION PRINCIPALE
+   ============================================================ -->
+<div id="app-wrapper">
 
-  statusDiv.innerText = "> Terminal prêt. Liaison sécurisée établie.";
+  <!-- En-tête -->
+  <header class="site-header">
+    <h1 class="titre-principal">Loup-Garou</h1>
+    <p class="sous-titre">L'Éveil des Ombres</p>
+  </header>
 
-  // Fonction pour envoyer les données
-  document.getElementById('sendBtn').addEventListener('click', async () => {
-    const agent = document.getElementById('agentName').value;
-    const report = document.getElementById('reportContent').value;
+  <!-- ============================================================
+     ÉCRAN 1 : ACCUEIL / CONNEXION
+     ============================================================ -->
+  <main id="ecran-accueil" class="ecran actif" role="main">
+    <div class="accueil-centre">
+      <div class="logo-demon" aria-hidden="true">⛩️</div>
 
-    if(!agent || !report) {
-        statusDiv.innerText = "> ERREUR : Champs manquants.";
-        return;
-    }
+      <!-- Panneau Créer une session (MJ) -->
+      <div class="panneau-accueil cadre-calligraphie" id="panneau-creer">
+        <h2>Convoquer les Ombres</h2>
+        <p style="font-size:0.8rem;color:var(--texte-ombre);margin-bottom:1.2rem;text-align:center;">
+          Créez une session en tant que Maître du Jeu
+        </p>
+        <div class="champ-groupe">
+          <label for="mj-pseudo">Votre nom de seigneur</label>
+          <input type="text" id="mj-pseudo" class="champ-saisie" placeholder="Ex: Le Seigneur des Brumes" maxlength="24">
+        </div>
+        <div class="champ-groupe">
+          <label for="nb-joueurs-min">Joueurs attendus (5–20)</label>
+          <input type="number" id="nb-joueurs-min" class="champ-saisie" value="6" min="5" max="20">
+        </div>
+        <button class="btn btn-primaire" onclick="creerSession()">⚔️ Ouvrir le Sanctuaire</button>
 
-    statusDiv.innerText = "> Chiffrement en cours...";
+        <div class="separateur-decoratif" style="margin:1.5rem 0;">ou</div>
 
-    try {
-      await addDoc(collection(db, "rapports_secrets"), {
-        agent: agent,
-        contenu: report,
-        timestamp: serverTimestamp()
-      });
-      statusDiv.innerText = "> TRANSMISSION RÉUSSIE. Rapport archivé.";
-      document.getElementById('agentName').value = "";
-      document.getElementById('reportContent').value = "";
-    } catch (e) {
-      statusDiv.innerText = "> ERREUR CRITIQUE : " + e.message;
-    }
+        <!-- Panneau Rejoindre -->
+        <h2>Rejoindre une Session</h2>
+        <div class="champ-groupe">
+          <label for="joueur-pseudo">Votre nom</label>
+          <input type="text" id="joueur-pseudo" class="champ-saisie" placeholder="Ex: Voyageur des Ombres" maxlength="24">
+        </div>
+        <div class="champ-groupe">
+          <label for="session-id">Code de session du MJ</label>
+          <input type="text" id="session-id" class="champ-saisie" placeholder="Ex: OMBRE-4821" maxlength="20" style="text-transform:uppercase;">
+        </div>
+        <button class="btn btn-or" onclick="rejoindreSallon()">🌑 Entrer dans les Ombres</button>
+      </div>
+
+      <!-- Liste d'attente -->
+      <div id="zone-attente" style="width:100%;max-width:440px;display:none;">
+        <div class="panneau-accueil cadre-calligraphie">
+          <div style="text-align:center;margin-bottom:1rem;">
+            <div style="font-size:0.75rem;letter-spacing:0.2em;color:var(--texte-doux);text-transform:uppercase;">Code de Session</div>
+            <div id="affichage-code-session" style="font-size:1.8rem;font-weight:bold;color:var(--or-clair);letter-spacing:0.3em;text-shadow:var(--ombre-or);margin:0.3rem 0;"></div>
+            <div style="font-size:0.7rem;color:var(--texte-ombre);">Partagez ce code avec les joueurs</div>
+          </div>
+
+          <div class="liste-joueurs-accueil">
+            <h3>Âmes Convoquées (<span id="nb-joueurs-connectes">0</span>)</h3>
+            <div id="liste-joueurs-attente"></div>
+          </div>
+
+          <div id="zone-btn-lancer" style="margin-top:1rem;display:none;">
+            <button class="btn btn-primaire" onclick="lancerPartie()" id="btn-lancer-partie">
+              ⛩️ Éveiller les Ombres
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ============================================================
+     ÉCRAN 2 : JEU EN COURS
+     ============================================================ -->
+  <section id="ecran-jeu" class="ecran" aria-label="Zone de jeu">
+
+    <!-- PANEL MJ — affiché uniquement au MJ -->
+    <div class="panel-mj cadre-calligraphie" id="panel-mj" style="display:none;">
+      <div class="panel-mj-titre">Conseil des Ombres — Maître du Jeu</div>
+
+      <div class="grille-controles">
+        <button class="btn-controle" onclick="mjAction('pause')" id="btn-pause">⏸ Pause</button>
+        <button class="btn-controle" onclick="mjAction('nuit')" id="btn-nuit">🌑 Forcer le Sommeil</button>
+        <button class="btn-controle" onclick="mjAction('reveil')" id="btn-reveil">☀️ Réveil / Débat</button>
+        <button class="btn-controle" onclick="mjAction('vote')" id="btn-vote">⚖️ Ouvrir le Vote</button>
+        <button class="btn-controle" onclick="mjAction('prochaine-phase')" id="btn-prochaine-phase">⏩ Phase Suivante</button>
+        <button class="btn-controle" onclick="mjAction('fin')" id="btn-fin" style="border-color:var(--or-terni);color:var(--or-clair);">🏛️ Fin de Partie</button>
+      </div>
+
+      <div class="liste-mj-joueurs" id="liste-mj-joueurs">
+        <!-- Rempli dynamiquement -->
+      </div>
+    </div>
+
+    <!-- Zone de jeu principale -->
+    <div class="zone-jeu">
+
+      <!-- Colonne centrale -->
+      <div class="centre-jeu">
+
+        <!-- Bannière état du jeu -->
+        <div class="etat-jeu-banniere cadre-calligraphie">
+          <div id="badge-phase-actuelle" class="badge-phase phase-nuit">🌑 Nuit</div>
+          <div class="etat-jeu-texte" id="texte-etat-jeu">Le sanctuaire s'éveille...</div>
+          <div class="etat-jeu-sous-texte" id="sous-texte-etat-jeu">Attendez les instructions du Maître du Jeu</div>
+
+          <!-- Timer -->
+          <div class="timer-cercle" id="zone-timer" style="display:none;">
+            <svg class="timer-svg" width="80" height="80" viewBox="0 0 80 80">
+              <circle class="timer-piste" cx="40" cy="40" r="36"/>
+              <circle class="timer-barre" id="timer-barre-svg" cx="40" cy="40" r="36"/>
+            </svg>
+            <div class="timer-nombre" id="timer-nombre">45</div>
+          </div>
+        </div>
+
+        <!-- Carte de rôle du joueur -->
+        <div class="zone-carte-role" id="zone-carte-role">
+          <!-- Rempli dynamiquement -->
+        </div>
+
+        <!-- Zone action nocturne -->
+        <div class="zone-action-nuit cadre-calligraphie" id="zone-action-nuit">
+          <h3 id="titre-action-nuit">🌑 Agissez dans l'Ombre</h3>
+          <p id="instruction-action-nuit" style="font-size:0.8rem;color:var(--texte-doux);margin-bottom:0.5rem;"></p>
+          <div class="grille-cibles" id="grille-cibles-nuit">
+            <!-- Cibles remplies dynamiquement -->
+          </div>
+          <button class="btn btn-primaire" style="width:auto;margin-top:0.8rem;padding:0.5rem 1.2rem;" onclick="confirmerActionNuit()">
+            Confirmer
+          </button>
+        </div>
+
+        <!-- Zone de vote (jour) -->
+        <div class="zone-vote cadre-calligraphie" id="zone-vote">
+          <h3>⚖️ Le Conseil Délibère</h3>
+          <p style="font-size:0.8rem;color:var(--texte-doux);margin-bottom:0.8rem;">Désignez le suspect à éliminer</p>
+          <div id="liste-votes"></div>
+          <div style="margin-top:0.8rem;">
+            <button class="btn btn-primaire" style="width:auto;padding:0.5rem 1.2rem;" onclick="soumettreVote()">
+              Sceller mon verdict
+            </button>
+          </div>
+        </div>
+
+        <!-- Log des événements -->
+        <div class="log-evenements cadre-calligraphie" id="log-evenements" aria-live="polite" aria-label="Chronique des événements">
+          <div class="log-entree"><span class="horodatage">—</span>Le Sanctuaire attend ses habitants...</div>
+        </div>
+
+      </div>
+
+      <!-- Colonne droite : joueurs -->
+      <aside class="colonne-joueurs">
+        <div class="colonne-joueurs-titre">Âmes du Sanctuaire</div>
+        <div id="liste-joueurs-jeu">
+          <!-- Rempli dynamiquement -->
+        </div>
+      </aside>
+    </div>
+
+    <!-- Barre audio -->
+    <div class="barre-audio">
+      <button onclick="toggleAudio()" id="btn-audio-toggle" title="Muet/Son">🔊</button>
+      <div class="indicateur-piste" id="indicateur-piste">Ambiance — Sanctuaire des Ombres</div>
+      <button onclick="changerPiste(-1)" title="Précédent">⏮</button>
+      <button onclick="changerPiste(1)" title="Suivant">⏭</button>
+    </div>
+  </section>
+
+  <!-- ============================================================
+     ÉCRAN 3 : FIN DE PARTIE
+     ============================================================ -->
+  <section id="ecran-fin" class="ecran" aria-label="Fin de partie">
+    <div class="ecran-fin">
+      <div id="victoire-icone" style="font-size:5rem;margin-bottom:1rem;"></div>
+      <div id="victoire-titre" class="victoire-titre">—</div>
+      <p id="victoire-description" style="color:var(--texte-doux);margin:1rem auto;max-width:400px;line-height:1.6;"></p>
+      <div id="resume-roles" style="margin:2rem auto;max-width:500px;"></div>
+      <button class="btn btn-or" onclick="revenirAccueil()" style="width:auto;margin-top:1rem;">
+        🏛️ Nouvelle Session
+      </button>
+    </div>
+  </section>
+
+</div><!-- fin #app-wrapper -->
+
+<!-- Barre de statut -->
+<footer class="statut-barre" role="status">
+  <div class="statut-connexion">
+    <div class="dot-connexion deconnecte" id="dot-connexion"></div>
+    <span id="texte-statut-connexion">Mode hors-ligne (simulation locale)</span>
+  </div>
+  <div id="info-session" style="display:none;color:var(--texte-doux);">
+    Session : <strong id="code-session-barre" style="color:var(--or-terni);">—</strong>
+  </div>
+</footer>
+
+<!-- ============================================================
+   GESTION AUDIO — PLACEHOLDERS
+   ============================================================ -->
+<audio id="audio-ambiance"   loop  preload="none"></audio>
+<audio id="audio-evenement"        preload="none"></audio>
+
+<script>
+/* ============================================================
+   LOUP-GAROU : L'ÉVEIL DES OMBRES
+   Version : 1.0
+   Architecture : Simulation locale + Ably.io optionnel
+
+   COMMENT CONFIGURER ABLY :
+   1. Créez un compte sur https://ably.com (gratuit)
+   2. Allez dans Dashboard > votre app > API Keys
+   3. Copiez votre clé (format: xxxxx.xxxxx:xxxxx)
+   4. Remplacez ABLY_API_KEY ci-dessous
+   5. Décommentez la section "CONNEXION ABLY" plus bas
+   ============================================================ */
+
+const ABLY_API_KEY = 'VOTRE_CLE_API_ABLY'; // ← Remplacez ici
+const MODE_DEMO = true; // Mettre à false quand Ably est configuré
+
+/* ============================================================
+   DÉFINITION DES RÔLES
+   ============================================================ */
+const ROLES = {
+  premier_eveille: {
+    id: 'premier_eveille',
+    nom: 'Le Premier Éveillé',
+    type: 'Loup Garou Blanc',
+    icone: '🐺',
+    couleur: 'role-blanc',
+    description: 'Fils aîné des ombres, vous êtes un loup parmi les loups. Mais votre ambition dépasse le clan — vous pouvez tenter de gagner seul si vous êtes le dernier loup survivant. La nuit, vous vous éveillez avec les Ombres Voraces pour choisir une victime.',
+    camp: 'loups',
+    ordre_reveil: 1,
+    action: 'attaque',
+    unique: true,
+  },
+  ombre_vorace: {
+    id: 'ombre_vorace',
+    nom: "L'Ombre Vorace",
+    type: 'Loup-Garou',
+    icone: '🔥',
+    couleur: 'role-loup',
+    description: "Chasseur né des ténèbres, vous traquiez les âmes innocentes dans l'obscurité. Chaque nuit, vous vous réveillez avec votre clan pour désigner une proie. Le jour, vous portez le masque du villageois et vous manipulez le conseil pour protéger les vôtres.",
+    camp: 'loups',
+    ordre_reveil: 1,
+    action: 'attaque',
+    unique: false,
+  },
+  oracle_sang: {
+    id: 'oracle_sang',
+    nom: "L'Oracle du Sang",
+    type: 'Voyante',
+    icone: '🔮',
+    couleur: 'role-voyante',
+    description: "Vos yeux percent les masques et voient l'essence véritable des âmes. Chaque nuit, vous choisissez un habitant dont vous découvrirez la vraie nature — démon ou mortel. Usez de ce don avec prudence car les Ombres cherchent à vous réduire au silence.",
+    camp: 'village',
+    ordre_reveil: 2,
+    action: 'voyance',
+    unique: true,
+  },
+  herboriste_maudit: {
+    id: 'herboriste_maudit',
+    nom: "L'Herboriste Maudit",
+    type: 'Sorcière',
+    icone: '⚗️',
+    couleur: 'role-sorciere',
+    description: "Deux philtres ancestraux reposent dans vos mains : une fiole de vie qui peut arracher une âme à la mort, et un poison noir qui peut tuer n'importe qui — même un loup. Chaque potion ne peut être utilisée qu'une seule fois dans toute la partie.",
+    camp: 'village',
+    ordre_reveil: 3,
+    action: 'potion',
+    unique: true,
+    potions: { vie: true, mort: true },
+  },
+  protecteur_sanctuaire: {
+    id: 'protecteur_sanctuaire',
+    nom: 'Le Protecteur du Sanctuaire',
+    type: 'Garde du Corps',
+    icone: '🛡️',
+    couleur: 'role-garde',
+    description: "Gardien des portes sacrées, vous pouvez chaque nuit choisir une âme à protéger des attaques démoniaques. Vous ne pouvez pas protéger la même personne deux nuits consécutives — et vous ne pouvez pas vous protéger vous-même.",
+    camp: 'village',
+    ordre_reveil: 4,
+    action: 'protection',
+    unique: true,
+  },
+  ame_ordinaire: {
+    id: 'ame_ordinaire',
+    nom: "L'Âme Ordinaire",
+    type: 'Villageois',
+    icone: '🏮',
+    couleur: 'role-villageois',
+    description: "Vous êtes un habitant du sanctuaire sans pouvoir particulier. Votre arme est votre discernement et votre capacité à convaincre le conseil. Le jour, observez, écoutez, et votez avec sagesse pour chasser les Ombres parmi vous.",
+    camp: 'village',
+    ordre_reveil: null,
+    action: null,
+    unique: false,
+  },
+};
+
+/* Distribution selon le nombre de joueurs */
+function calculerDistribution(nbJoueurs) {
+  const nbLoups = Math.max(1, Math.floor(nbJoueurs / 4));
+  const dist = [];
+
+  // Premier Éveillé (toujours 1)
+  dist.push('premier_eveille');
+
+  // Loups supplémentaires
+  for (let i = 1; i < nbLoups; i++) dist.push('ombre_vorace');
+
+  // Rôles spéciaux villageois
+  dist.push('oracle_sang');
+  if (nbJoueurs >= 6)  dist.push('herboriste_maudit');
+  if (nbJoueurs >= 8)  dist.push('protecteur_sanctuaire');
+
+  // Reste = âmes ordinaires
+  while (dist.length < nbJoueurs) dist.push('ame_ordinaire');
+
+  return dist;
+}
+
+/* ============================================================
+   ÉTAT GLOBAL DU JEU
+   ============================================================ */
+const etat = {
+  // Session
+  estMJ: false,
+  monId: null,
+  monPseudo: null,
+  monRole: null,
+  sessionId: null,
+
+  // Joueurs
+  joueurs: {},       // { id: { pseudo, role, vivant, pret } }
+  ordreJoueurs: [],  // [id, ...]
+
+  // Phase de jeu
+  phase: 'attente',   // attente | nuit | jour | vote | fin
+  nuit: 0,
+  actionsNuit: {},    // { roleId: cibleId }
+  votes: {},          // { votantId: cibleId }
+  cibleProtegee: null,
+  derniereMortNuit: null,
+  potionVieDispo: true,
+  potionMortDispo: true,
+  cibleSelectionne: null,
+  voteSelectionne: null,
+
+  // Timer
+  timerInterval: null,
+  timerRestant: 0,
+
+  // Audio
+  muet: false,
+  pistesAmbiance: [
+    { nom: 'Sanctuaire des Ombres',  url: '' },
+    { nom: 'Catacombes Démoniaques', url: '' },
+    { nom: 'Marche Nocturne',        url: '' },
+  ],
+  piste: 0,
+};
+
+/* ============================================================
+   GESTION ABLY (OPTIONNEL)
+   ============================================================ -->
+/*
+  DÉCOMMENTEZ CETTE SECTION QUAND ABLY EST CONFIGURÉ :
+
+let ablyClient = null;
+let canal = null;
+
+function connecterAbly(sessionId) {
+  ablyClient = new Ably.Realtime({ key: ABLY_API_KEY });
+
+  ablyClient.connection.on('connected', () => {
+    mettreAJourStatutConnexion(true);
+    afficherToast('Connexion au sanctuaire établie', 'vert');
   });
-</script>
 
+  ablyClient.connection.on('disconnected', () => {
+    mettreAJourStatutConnexion(false);
+  });
+
+  canal = ablyClient.channels.get(`loups-${sessionId}`);
+
+  canal.subscribe((msg) => {
+    recevoirMessage(msg.name, msg.data);
+  });
+
+  // Annoncer sa présence
+  publierMessage('joueur:rejoindre', {
+    id: etat.monId,
+    pseudo: etat.monPseudo,
+    estMJ: etat.estMJ,
+  });
+}
+
+function publierMessage(type, donnees) {
+  if (canal) canal.publish(type, donnees);
+}
+*/
+
+/* Simulation locale pour la démo */
+function publierMessage(type, donnees) {
+  // En mode démo, on simule la réception immédiate
+  setTimeout(() => recevoirMessage(type, { ...donnees, _local: true }), 50);
+}
+
+function recevoirMessage(type, donnees) {
+  switch (type) {
+    case 'joueur:rejoindre':
+      if (!etat.joueurs[donnees.id]) {
+        etat.joueurs[donnees.id] = { pseudo: donnees.pseudo, role: null, vivant: true, pret: false };
+        if (!etat.ordreJoueurs.includes(donnees.id)) etat.ordreJoueurs.push(donnees.id);
+        mettreAJourListeAttente();
+        mettreAJourListeJeu();
+        ajouterLog(`${donnees.pseudo} entre dans le sanctuaire`, 'important');
+        afficherToast(`${donnees.pseudo} a rejoint`);
+      }
+      break;
+
+    case 'joueur:quitter':
+      if (etat.joueurs[donnees.id]) {
+        ajouterLog(`${etat.joueurs[donnees.id].pseudo} quitte le sanctuaire`, 'danger');
+        delete etat.joueurs[donnees.id];
+        etat.ordreJoueurs = etat.ordreJoueurs.filter(id => id !== donnees.id);
+        mettreAJourListeAttente();
+        mettreAJourListeJeu();
+        if (etat.estMJ) mettreAJourPanelMJ();
+      }
+      break;
+
+    case 'jeu:lancer':
+      if (!donnees._local || !etat.estMJ) {
+        // Distribution des rôles
+        const rolesDistrib = donnees.roles;
+        etat.ordreJoueurs = donnees.ordreJoueurs;
+        donnees.ordreJoueurs.forEach(id => {
+          if (etat.joueurs[id]) etat.joueurs[id].role = rolesDistrib[id];
+        });
+      }
+      demarrerJeu();
+      break;
+
+    case 'jeu:action-mj':
+      executerActionMJ(donnees.action, donnees);
+      break;
+
+    case 'nuit:action':
+      if (etat.estMJ) {
+        etat.actionsNuit[donnees.role] = donnees.cible;
+        verifierActionsNuitCompletes();
+      }
+      break;
+
+    case 'vote:soumettre':
+      if (etat.estMJ) {
+        etat.votes[donnees.votant] = donnees.cible;
+        mettreAJourAffichageVotes();
+        verifierVotesComplets();
+      }
+      break;
+  }
+}
+
+/* ============================================================
+   CRÉATION DE SESSION (MJ)
+   ============================================================ */
+function creerSession() {
+  const pseudo = document.getElementById('mj-pseudo').value.trim();
+  if (!pseudo) { afficherToast('Entrez votre nom de seigneur', 'rouge'); return; }
+
+  etat.estMJ = true;
+  etat.monPseudo = pseudo;
+  etat.monId = genererID();
+  etat.sessionId = 'OMBRE-' + Math.random().toString(36).substr(2, 4).toUpperCase();
+
+  // Ajouter le MJ dans les joueurs
+  etat.joueurs[etat.monId] = { pseudo, role: null, vivant: true, pret: true, estMJ: true };
+  etat.ordreJoueurs.push(etat.monId);
+
+  // Afficher la zone d'attente
+  document.getElementById('zone-attente').style.display = 'block';
+  document.getElementById('panneau-creer').style.display = 'none';
+  document.getElementById('affichage-code-session').textContent = etat.sessionId;
+  document.getElementById('info-session').style.display = 'flex';
+  document.getElementById('code-session-barre').textContent = etat.sessionId;
+
+  mettreAJourListeAttente();
+
+  // Simulation Ably : annoncer la session
+  if (!MODE_DEMO) {
+    // connecterAbly(etat.sessionId);
+  }
+
+  afficherToast(`Session "${etat.sessionId}" créée !`, 'or');
+  ajouterJoueurDemo(); // En mode démo, ajouter des joueurs simulés
+}
+
+/* Ajouter des joueurs démo pour la démonstration */
+function ajouterJoueurDemo() {
+  if (!MODE_DEMO) return;
+  const nomsDemo = ['Kage', 'Ryuu', 'Yami', 'Oni', 'Kuroi', 'Akuma', 'Shi', 'Tsuki'];
+  let idx = 0;
+
+  const interval = setInterval(() => {
+    if (idx >= Math.min(5, nomsDemo.length)) { clearInterval(interval); return; }
+    const id = 'demo-' + idx;
+    const pseudo = nomsDemo[idx];
+    setTimeout(() => {
+      recevoirMessage('joueur:rejoindre', { id, pseudo });
+    }, (idx + 1) * 800);
+    idx++;
+  }, 850);
+}
+
+/* ============================================================
+   REJOINDRE UNE SESSION (Joueur)
+   ============================================================ */
+function rejoindreSallon() {
+  const pseudo = document.getElementById('joueur-pseudo').value.trim();
+  const sessionId = document.getElementById('session-id').value.trim().toUpperCase();
+
+  if (!pseudo) { afficherToast('Entrez votre nom', 'rouge'); return; }
+  if (!sessionId) { afficherToast('Entrez un code de session', 'rouge'); return; }
+
+  etat.estMJ = false;
+  etat.monPseudo = pseudo;
+  etat.monId = genererID();
+  etat.sessionId = sessionId;
+
+  etat.joueurs[etat.monId] = { pseudo, role: null, vivant: true, pret: true };
+  etat.ordreJoueurs.push(etat.monId);
+
+  document.getElementById('zone-attente').style.display = 'block';
+  document.getElementById('panneau-creer').style.display = 'none';
+  document.getElementById('affichage-code-session').textContent = sessionId;
+  document.getElementById('info-session').style.display = 'flex';
+  document.getElementById('code-session-barre').textContent = sessionId;
+
+  if (!MODE_DEMO) {
+    // connecterAbly(sessionId);
+  }
+
+  publierMessage('joueur:rejoindre', { id: etat.monId, pseudo });
+  afficherToast(`Vous avez rejoint "${sessionId}"`, 'vert');
+}
+
+/* ============================================================
+   MISE À JOUR LISTE D'ATTENTE
+   ============================================================ */
+function mettreAJourListeAttente() {
+  const liste = document.getElementById('liste-joueurs-attente');
+  const nb = document.getElementById('nb-joueurs-connectes');
+  const ids = etat.ordreJoueurs;
+
+  nb.textContent = ids.length;
+  liste.innerHTML = '';
+
+  ids.forEach(id => {
+    const j = etat.joueurs[id];
+    if (!j) return;
+    const div = document.createElement('div');
+    div.className = 'item-joueur-accueil';
+    div.innerHTML = `
+      <span>${j.pseudo}</span>
+      ${j.estMJ ? '<span class="pastille-mj">MJ</span>' : ''}
+    `;
+    liste.appendChild(div);
+  });
+
+  // Bouton lancer visible uniquement pour le MJ
+  const zoneBtnLancer = document.getElementById('zone-btn-lancer');
+  if (etat.estMJ) {
+    zoneBtnLancer.style.display = 'block';
+    const btn = document.getElementById('btn-lancer-partie');
+    btn.disabled = ids.length < 5;
+    btn.textContent = ids.length < 5
+      ? `⏳ Attente (${ids.length}/5 minimum)`
+      : '⛩️ Éveiller les Ombres';
+  } else {
+    zoneBtnLancer.style.display = 'none';
+  }
+}
+
+/* ============================================================
+   LANCEMENT DE LA PARTIE (MJ SEULEMENT)
+   ============================================================ */
+function lancerPartie() {
+  if (!etat.estMJ) return;
+  if (etat.ordreJoueurs.length < 5) { afficherToast('Minimum 5 joueurs requis', 'rouge'); return; }
+
+  // Mélanger les rôles
+  const nb = etat.ordreJoueurs.length;
+  const rolesList = calculerDistribution(nb);
+  const rolesMelanges = melangerTableau([...rolesList]);
+
+  // Attribuer les rôles
+  const rolesDistrib = {};
+  etat.ordreJoueurs.forEach((id, i) => {
+    rolesDistrib[id] = rolesMelanges[i];
+  });
+
+  // Mon propre rôle
+  etat.monRole = rolesDistrib[etat.monId];
+
+  // Publier le lancement
+  publierMessage('jeu:lancer', {
+    roles: rolesDistrib,
+    ordreJoueurs: etat.ordreJoueurs,
+  });
+}
+
+/* ============================================================
+   DÉMARRAGE DU JEU — TRANSITION
+   ============================================================ */
+function demarrerJeu() {
+  // Appliquer les rôles
+  etat.ordreJoueurs.forEach(id => {
+    const roleId = etat.joueurs[id]?.role;
+    if (id === etat.monId && roleId) etat.monRole = roleId;
+  });
+
+  // Aller à l'écran de jeu
+  changerEcran('ecran-jeu');
+
+  if (etat.estMJ) document.getElementById('panel-mj').style.display = 'block';
+
+  mettreAJourListeJeu();
+  if (etat.estMJ) mettreAJourPanelMJ();
+
+  // Animation d'entrée de la carte de rôle
+  setTimeout(() => afficherCarteRole(), 500);
+
+  // Premier log
+  ajouterLog('La partie commence ! Les ombres s\'éveillent...', 'important');
+  joueurSon('ambiance');
+
+  etat.phase = 'jour';
+  mettreAJourEtatJeu('☀️ Le premier jour se lève...', 'Observez vos voisins, méfiez-vous des ombres.');
+  mettreAJourBadgePhase('jour');
+}
+
+/* ============================================================
+   AFFICHAGE DE LA CARTE DE RÔLE
+   ============================================================ */
+function afficherCarteRole() {
+  if (!etat.monRole) return;
+  const role = ROLES[etat.monRole];
+  const zone = document.getElementById('zone-carte-role');
+
+  zone.innerHTML = `
+    <div class="carte-role anime" id="carte-mon-role" onclick="toggleDescriptionCarte(this)" role="button" aria-label="Votre rôle : ${role.nom}">
+      <div class="carte-role-interieur">
+        <div class="carte-face">
+          <div class="carte-role-icone">${role.icone}</div>
+          <div class="carte-role-nom">${role.nom}</div>
+          <div class="carte-role-type">${role.type}</div>
+          <div style="margin-top:0.5rem;font-size:0.65rem;color:var(--texte-ombre);">[Survolez pour en savoir plus]</div>
+        </div>
+        <div class="carte-dos">
+          <div style="font-weight:bold;color:var(--or-clair);font-size:0.8rem;margin-bottom:0.5rem;">${role.nom}</div>
+          <p style="font-size:0.7rem;line-height:1.5;">${role.description}</p>
+          <div style="margin-top:0.5rem;font-size:0.65rem;color:var(--${role.camp === 'loups' ? 'rouge-lueur' : 'or-terni'}); font-weight:bold;">${role.camp === 'loups' ? '🔥 Camp des Ombres' : '🏮 Camp du Village'}</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Particules d'entrée
+  setTimeout(() => lancerParticulesCarte(zone), 400);
+}
+
+function lancerParticulesCarte(container) {
+  for (let i = 0; i < 12; i++) {
+    const p = document.createElement('div');
+    p.className = 'particule-carte';
+    const angle = (i / 12) * Math.PI * 2;
+    const dist = 60 + Math.random() * 40;
+    p.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+    p.style.setProperty('--ty', Math.sin(angle) * dist + 'px');
+    p.style.left = '50%'; p.style.top = '50%';
+    p.style.background = Math.random() > 0.5 ? 'var(--or-terni)' : 'var(--rouge-sang)';
+    p.style.animationDelay = Math.random() * 0.3 + 's';
+    container.appendChild(p);
+    setTimeout(() => p.remove(), 1500);
+  }
+}
+
+/* ============================================================
+   ACTIONS MJ
+   ============================================================ */
+function mjAction(action) {
+  if (!etat.estMJ) return;
+  publierMessage('jeu:action-mj', { action });
+}
+
+function executerActionMJ(action, donnees) {
+  switch (action) {
+    case 'pause':
+      afficherToast('Partie en pause', 'or');
+      mettreAJourEtatJeu('⏸ Pause', 'Le Maître du Jeu a suspendu la partie.');
+      arreterTimer();
+      break;
+
+    case 'nuit':
+      demarrerPhaseNuit();
+      break;
+
+    case 'reveil':
+      terminerPhaseNuit();
+      break;
+
+    case 'vote':
+      demarrerPhaseVote();
+      break;
+
+    case 'prochaine-phase':
+      passerPhase();
+      break;
+
+    case 'fin':
+      if (etat.estMJ) {
+        const gagnants = window.prompt ? prompt("Qui gagne ? (loups/village/ombre-blanche)") : 'village';
+        terminerPartie(gagnants || 'village');
+      }
+      break;
+  }
+}
+
+/* ============================================================
+   PHASES DU JEU
+   ============================================================ */
+function demarrerPhaseNuit() {
+  etat.phase = 'nuit';
+  etat.nuit++;
+  etat.actionsNuit = {};
+
+  // Écran noir pour tous
+  document.getElementById('ecran-nuit').classList.add('actif');
+  mettreAJourBadgePhase('nuit');
+  ajouterLog(`Nuit ${etat.nuit} — Les ombres dévorent le sanctuaire`, 'danger');
+  joueurSon('gong');
+
+  // Afficher la zone d'action pour les rôles actifs la nuit
+  afficherActionNuit();
+
+  // Timer 45 secondes pour chaque phase nocturne
+  demarrerTimer(45, () => {
+    if (etat.estMJ) terminerPhaseNuit();
+  });
+}
+
+function afficherActionNuit() {
+  const role = etat.monRole ? ROLES[etat.monRole] : null;
+  if (!role || !role.ordre_reveil) return;
+
+  // Retirer l'écran noir uniquement pour le rôle actif (simulé)
+  const zoneAction = document.getElementById('zone-action-nuit');
+  const titreAction = document.getElementById('titre-action-nuit');
+  const instrAction = document.getElementById('instruction-action-nuit');
+  const grilleAction = document.getElementById('grille-cibles-nuit');
+
+  let titre = '🌑 Agissez dans l\'Ombre';
+  let instruction = '';
+  let cibles = [];
+
+  switch (role.action) {
+    case 'attaque':
+      titre = '🔥 Les Ombres Choisissent leur Proie';
+      instruction = 'Désignez la victime de cette nuit.';
+      cibles = jouveursVivantsSauf(etat.monId).filter(id => {
+        const r = ROLES[etat.joueurs[id]?.role];
+        return r?.camp !== 'loups';
+      });
+      break;
+    case 'voyance':
+      titre = '🔮 L\'Oracle Scrute les Âmes';
+      instruction = 'Choisissez une âme dont vous désirez connaître la nature.';
+      cibles = jouveursVivantsSauf(etat.monId);
+      break;
+    case 'potion':
+      titre = '⚗️ L\'Herboriste Maudit Agit';
+      instruction = etat.potionVieDispo || etat.potionMortDispo
+        ? 'Utilisez une de vos potions, ou passez.'
+        : 'Vos philtres sont épuisés. Passez.';
+      cibles = jouveursVivantsSauf(etat.monId);
+      break;
+    case 'protection':
+      titre = '🛡️ Le Protecteur Choisit';
+      instruction = 'Protégez une âme contre l\'attaque nocturne.';
+      cibles = jouveursVivantsSauf(etat.monId);
+      break;
+    default: return;
+  }
+
+  titreAction.textContent = titre;
+  instrAction.textContent = instruction;
+  grilleAction.innerHTML = '';
+  etat.cibleSelectionne = null;
+
+  cibles.forEach(id => {
+    const btn = document.createElement('button');
+    btn.className = 'btn-cible';
+    btn.textContent = etat.joueurs[id]?.pseudo || '???';
+    btn.onclick = () => selectionnerCible(id, btn);
+    grilleAction.appendChild(btn);
+  });
+
+  if (cibles.length > 0) {
+    zoneAction.classList.add('active');
+    // Remonter l'écran pour ce joueur
+    if (role.ordre_reveil) {
+      document.getElementById('ecran-nuit').classList.remove('actif');
+    }
+  }
+}
+
+function selectionnerCible(id, btn) {
+  document.querySelectorAll('.btn-cible').forEach(b => b.classList.remove('selectionne'));
+  btn.classList.add('selectionne');
+  etat.cibleSelectionne = id;
+}
+
+function confirmerActionNuit() {
+  if (!etat.cibleSelectionne) { afficherToast('Choisissez une cible', 'rouge'); return; }
+
+  const role = ROLES[etat.monRole];
+  publierMessage('nuit:action', { role: etat.monRole, cible: etat.cibleSelectionne });
+  afficherToast('Votre action a été transmise aux ombres', 'or');
+  document.getElementById('zone-action-nuit').classList.remove('active');
+
+  // Remettre l'écran noir
+  document.getElementById('ecran-nuit').classList.add('actif');
+}
+
+function verifierActionsNuitCompletes() {
+  // En mode MJ, résoudre les actions
+  resoudreNuit();
+}
+
+function resoudreNuit() {
+  if (!etat.estMJ) return;
+
+  const attaque    = etat.actionsNuit['premier_eveille'] || etat.actionsNuit['ombre_vorace'];
+  const protection = etat.actionsNuit['protecteur_sanctuaire'];
+  const potionVie  = etat.actionsNuit['herboriste_vie'];
+  const potionMort = etat.actionsNuit['herboriste_mort'];
+  const voyance    = etat.actionsNuit['oracle_sang'];
+
+  let victime = attaque;
+
+  // Protection annule l'attaque
+  if (protection && protection === attaque) victime = null;
+
+  // Potion de vie sauve la victime
+  if (potionVie && potionVie === attaque) { victime = null; etat.potionVieDispo = false; }
+
+  // Potion de mort tue directement
+  let victime2 = potionMort;
+  if (potionMort) etat.potionMortDispo = false;
+
+  // Appliquer les morts
+  if (victime && etat.joueurs[victime]) {
+    etat.joueurs[victime].vivant = false;
+    etat.derniereMortNuit = victime;
+  }
+  if (victime2 && etat.joueurs[victime2]) {
+    etat.joueurs[victime2].vivant = false;
+  }
+}
+
+function terminerPhaseNuit() {
+  arreterTimer();
+  document.getElementById('ecran-nuit').classList.remove('actif');
+  document.getElementById('zone-action-nuit').classList.remove('active');
+  etat.phase = 'jour';
+
+  // Résoudre la nuit
+  if (etat.estMJ) resoudreNuit();
+
+  mettreAJourListeJeu();
+  mettreAJourBadgePhase('jour');
+  joueurSon('matin');
+
+  // Annoncer les morts
+  const mort = etat.derniereMortNuit;
+  if (mort && etat.joueurs[mort]) {
+    const nomMort = etat.joueurs[mort].pseudo;
+    mettreAJourEtatJeu(`☀️ L'aube révèle une tragédie...`, `${nomMort} a été consumé par les Ombres cette nuit.`);
+    ajouterLog(`${nomMort} a été retrouvé mort à l'aube.`, 'danger');
+  } else {
+    mettreAJourEtatJeu('☀️ L\'aube se lève sur le sanctuaire', 'Personne n\'est mort cette nuit. Les ombres ont été vaincues.');
+    ajouterLog('Nuit paisible — aucun mort.', 'important');
+  }
+
+  etat.derniereMortNuit = null;
+  verifierConditionsVictoire();
+}
+
+function demarrerPhaseVote() {
+  etat.phase = 'vote';
+  etat.votes = {};
+  mettreAJourBadgePhase('vote');
+  mettreAJourEtatJeu('⚖️ Le Conseil Délibère', 'Désignez un suspect à éliminer.');
+  ajouterLog('Le conseil s\'assemble pour voter.', 'important');
+
+  // Afficher zone de vote
+  const zoneVote = document.getElementById('zone-vote');
+  const listeVotes = document.getElementById('liste-votes');
+  zoneVote.classList.add('active');
+  listeVotes.innerHTML = '';
+  etat.voteSelectionne = null;
+
+  jouveursVivantsSauf(null).forEach(id => {
+    const div = document.createElement('div');
+    div.className = 'barre-vote';
+    div.innerHTML = `
+      <button class="btn-cible" style="min-width:90px;" onclick="selectionnerVote('${id}', this)">${etat.joueurs[id]?.pseudo}</button>
+      <div class="barre-vote-fond"><div class="barre-vote-remplissage" id="vote-barre-${id}" style="width:0%"></div></div>
+      <span id="vote-nb-${id}" style="font-size:0.75rem;color:var(--texte-ombre);min-width:20px;">0</span>
+    `;
+    listeVotes.appendChild(div);
+  });
+
+  demarrerTimer(60, () => resoudreVote());
+}
+
+function selectionnerVote(id, btn) {
+  document.querySelectorAll('#liste-votes .btn-cible').forEach(b => b.classList.remove('selectionne'));
+  btn.classList.add('selectionne');
+  etat.voteSelectionne = id;
+}
+
+function soumettreVote() {
+  if (!etat.voteSelectionne) { afficherToast('Choisissez un suspect', 'rouge'); return; }
+  publierMessage('vote:soumettre', { votant: etat.monId, cible: etat.voteSelectionne });
+  afficherToast('Votre verdict a été scellé', 'or');
+}
+
+function mettreAJourAffichageVotes() {
+  const comptage = {};
+  Object.values(etat.votes).forEach(id => { comptage[id] = (comptage[id] || 0) + 1; });
+  const total = Object.keys(etat.votes).length;
+
+  Object.keys(comptage).forEach(id => {
+    const barre = document.getElementById(`vote-barre-${id}`);
+    const nb = document.getElementById(`vote-nb-${id}`);
+    if (barre) barre.style.width = (comptage[id] / Math.max(total, 1) * 100) + '%';
+    if (nb) nb.textContent = comptage[id];
+  });
+}
+
+function verifierVotesComplets() {
+  const nbVivants = jouveursVivantsSauf(null).length;
+  if (Object.keys(etat.votes).length >= nbVivants) resoudreVote();
+}
+
+function resoudreVote() {
+  arreterTimer();
+  document.getElementById('zone-vote').classList.remove('active');
+
+  // Trouver le plus voté
+  const comptage = {};
+  Object.values(etat.votes).forEach(id => { comptage[id] = (comptage[id] || 0) + 1; });
+
+  let maxVotes = 0;
+  let elimine = null;
+  Object.entries(comptage).forEach(([id, nb]) => {
+    if (nb > maxVotes) { maxVotes = nb; elimine = id; }
+  });
+
+  if (elimine && etat.joueurs[elimine]) {
+    etat.joueurs[elimine].vivant = false;
+    const j = etat.joueurs[elimine];
+    const roleNom = ROLES[j.role]?.nom || '???';
+    mettreAJourEtatJeu(`⚔️ Sentence exécutée`, `${j.pseudo} est banni du sanctuaire — il était : ${roleNom}`);
+    ajouterLog(`${j.pseudo} (${roleNom}) a été banni par le conseil.`, 'danger');
+    joueurSon('cri');
+  } else {
+    mettreAJourEtatJeu('⚖️ Égalité', 'Le conseil ne parvient pas à un accord. Personne n\'est éliminé.');
+  }
+
+  mettreAJourListeJeu();
+  verifierConditionsVictoire();
+}
+
+function passerPhase() {
+  if (etat.phase === 'jour' || etat.phase === 'vote') {
+    executerActionMJ('nuit', {});
+  } else if (etat.phase === 'nuit') {
+    terminerPhaseNuit();
+  }
+}
+
+/* ============================================================
+   CONDITIONS DE VICTOIRE
+   ============================================================ */
+function verifierConditionsVictoire() {
+  if (!etat.estMJ) return;
+
+  const vivants = jouveursVivantsSauf(null);
+  const loups = vivants.filter(id => ROLES[etat.joueurs[id]?.role]?.camp === 'loups');
+  const village = vivants.filter(id => ROLES[etat.joueurs[id]?.role]?.camp === 'village');
+
+  // Victoire des Loups
+  if (loups.length >= village.length) {
+    terminerPartie('loups');
+    return;
+  }
+
+  // Victoire du Village
+  if (loups.length === 0) {
+    terminerPartie('village');
+    return;
+  }
+
+  // Victoire Loup Blanc (seul survivant loup)
+  if (loups.length === 1 && vivants.length === 1) {
+    terminerPartie('ombre-blanche');
+  }
+}
+
+function terminerPartie(gagnant) {
+  etat.phase = 'fin';
+  arreterTimer();
+
+  const ecranFin = document.getElementById('ecran-fin');
+  const titreVictoire = document.getElementById('victoire-titre');
+  const descVictoire = document.getElementById('victoire-description');
+  const iconeVictoire = document.getElementById('victoire-icone');
+  const resumeRoles = document.getElementById('resume-roles');
+
+  let titre, desc, icone, classeVictoire;
+
+  switch (gagnant) {
+    case 'loups':
+      titre = 'Les Ombres Triomphent';
+      desc = 'Les démons ont consumé le sanctuaire. Leurs masques tombent, révélant la vérité terrible — le mal régnait parmi les innocents.';
+      icone = '🔥';
+      classeVictoire = 'victoire-loups';
+      break;
+    case 'village':
+      titre = 'Le Village est Sauvé';
+      desc = 'La lumière a triomphé des ténèbres. Les habitants du sanctuaire ont démasqué les démons et restauré la paix.';
+      icone = '🏮';
+      classeVictoire = 'victoire-village';
+      break;
+    case 'ombre-blanche':
+      titre = 'Le Premier Éveillé Règne';
+      desc = 'Le loup blanc solitaire remporte une victoire écrasante. Sa ruse diabolique a éliminé loups et villageois pour régner seul.';
+      icone = '🐺';
+      classeVictoire = 'victoire-loups';
+      break;
+  }
+
+  titreVictoire.textContent = titre;
+  titreVictoire.className = `victoire-titre ${classeVictoire}`;
+  descVictoire.textContent = desc;
+  iconeVictoire.textContent = icone;
+
+  // Résumé des rôles
+  resumeRoles.innerHTML = '<div style="font-size:0.75rem;letter-spacing:0.15em;color:var(--texte-doux);text-transform:uppercase;margin-bottom:0.8rem;">Révélation des Âmes</div>';
+  etat.ordreJoueurs.forEach(id => {
+    const j = etat.joueurs[id];
+    if (!j) return;
+    const role = ROLES[j.role] || ROLES['ame_ordinaire'];
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex;align-items:center;gap:0.6rem;padding:0.4rem;margin-bottom:0.3rem;background:rgba(10,10,15,0.6);border-radius:4px;';
+    div.innerHTML = `
+      <span>${role.icone}</span>
+      <span style="flex:1;">${j.pseudo}</span>
+      <span class="badge-role ${role.couleur}">${role.nom}</span>
+      ${!j.vivant ? '<span style="font-size:0.7rem;color:var(--rouge-lueur);">✝ éliminé</span>' : ''}
+    `;
+    resumeRoles.appendChild(div);
+  });
+
+  changerEcran('ecran-fin');
+}
+
+/* ============================================================
+   TIMER
+   ============================================================ */
+function demarrerTimer(secondes, callback) {
+  arreterTimer();
+  etat.timerRestant = secondes;
+  const total = secondes;
+  const circumference = 226;
+
+  document.getElementById('zone-timer').style.display = 'block';
+
+  function tick() {
+    const restant = etat.timerRestant;
+    document.getElementById('timer-nombre').textContent = restant;
+    const barre = document.getElementById('timer-barre-svg');
+    const offset = circumference * (1 - restant / total);
+    barre.style.strokeDashoffset = offset;
+
+    // Couleur d'urgence
+    if (restant <= 10) {
+      barre.style.stroke = 'var(--rouge-lueur)';
+      document.getElementById('timer-nombre').style.color = 'var(--rouge-lueur)';
+    } else {
+      barre.style.stroke = 'var(--rouge-sang)';
+      document.getElementById('timer-nombre').style.color = 'var(--rouge-lueur)';
+    }
+
+    etat.timerRestant--;
+
+    if (etat.timerRestant < 0) {
+      arreterTimer();
+      if (callback) callback();
+    }
+  }
+
+  tick();
+  etat.timerInterval = setInterval(tick, 1000);
+}
+
+function arreterTimer() {
+  if (etat.timerInterval) {
+    clearInterval(etat.timerInterval);
+    etat.timerInterval = null;
+  }
+  const zone = document.getElementById('zone-timer');
+  if (zone) zone.style.display = 'none';
+}
+
+/* ============================================================
+   INTERFACE — MISES À JOUR
+   ============================================================ */
+function mettreAJourEtatJeu(texte, sousTexte) {
+  const t = document.getElementById('texte-etat-jeu');
+  const s = document.getElementById('sous-texte-etat-jeu');
+  if (t) t.textContent = texte;
+  if (s) s.textContent = sousTexte || '';
+}
+
+function mettreAJourBadgePhase(phase) {
+  const badge = document.getElementById('badge-phase-actuelle');
+  if (!badge) return;
+  const configs = {
+    nuit: { classe: 'phase-nuit', texte: '🌑 Nuit' },
+    jour: { classe: 'phase-jour', texte: '☀️ Jour' },
+    vote: { classe: 'phase-vote', texte: '⚖️ Vote' },
+  };
+  const cfg = configs[phase] || configs['jour'];
+  badge.className = `badge-phase ${cfg.classe}`;
+  badge.textContent = cfg.texte;
+}
+
+function mettreAJourListeJeu() {
+  const liste = document.getElementById('liste-joueurs-jeu');
+  if (!liste) return;
+  liste.innerHTML = '';
+
+  etat.ordreJoueurs.forEach(id => {
+    const j = etat.joueurs[id];
+    if (!j) return;
+    const div = document.createElement('div');
+    div.className = `item-joueur-jeu ${j.vivant ? 'joueur-vivant' : 'joueur-mort'}`;
+    div.innerHTML = `
+      <div class="dot-statut ${j.vivant ? 'dot-vivant' : 'dot-mort'}"></div>
+      <span class="joueur-nom-jeu">${j.pseudo}${id === etat.monId ? ' (Moi)' : ''}</span>
+      ${j.estMJ ? '<span class="pastille-mj">MJ</span>' : ''}
+    `;
+    liste.appendChild(div);
+  });
+}
+
+function mettreAJourPanelMJ() {
+  const liste = document.getElementById('liste-mj-joueurs');
+  if (!liste) return;
+  liste.innerHTML = '';
+
+  etat.ordreJoueurs.forEach(id => {
+    const j = etat.joueurs[id];
+    if (!j) return;
+    const role = ROLES[j.role];
+    const div = document.createElement('div');
+    div.className = 'ligne-mj-joueur';
+    div.innerHTML = `
+      <span class="mj-joueur-nom">${j.pseudo}${!j.vivant ? ' ✝' : ''}</span>
+      ${role ? `<span class="badge-role ${role.couleur}">${role.icone} ${role.nom}</span>` : '<span style="color:var(--texte-ombre);font-size:0.75rem;">—</span>'}
+      <button class="btn btn-danger" onclick="exclureJoueur('${id}')" title="Exclure" ${j.estMJ ? 'style="display:none"' : ''}>✕</button>
+    `;
+    liste.appendChild(div);
+  });
+}
+
+/* ============================================================
+   EXCLUSION (KICK) — MJ SEULEMENT
+   ============================================================ */
+function exclureJoueur(id) {
+  if (!etat.estMJ || id === etat.monId) return;
+  const j = etat.joueurs[id];
+  if (!j) return;
+  if (!confirm(`Exclure ${j.pseudo} de la session ?`)) return;
+
+  ajouterLog(`${j.pseudo} a été banni du sanctuaire par le MJ.`, 'danger');
+  publierMessage('joueur:quitter', { id });
+}
+
+/* ============================================================
+   LOG DES ÉVÉNEMENTS
+   ============================================================ */
+function ajouterLog(texte, type = '') {
+  const log = document.getElementById('log-evenements');
+  if (!log) return;
+
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+
+  const div = document.createElement('div');
+  div.className = `log-entree ${type}`;
+  div.innerHTML = `<span class="horodatage">${h}:${m}</span>${texte}`;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+
+  // Limiter à 100 entrées
+  while (log.children.length > 100) log.removeChild(log.firstChild);
+}
+
+/* ============================================================
+   AUDIO
+   ============================================================ */
+/*
+  POUR CONFIGURER L'AUDIO :
+  Remplacez les URLs vides dans etat.pistesAmbiance par des URLs valides
+  pointant vers vos fichiers audio (MP3, OGG, etc.).
+  Exemple : { nom: 'Sanctuaire', url: 'https://votre-serveur.com/ambiance.mp3' }
+
+  Sons d'événements :
+  - Gong de nuit : éditez audioEvenements.gong.src
+  - Cri d'attaque : éditez audioEvenements.cri.src
+  - Cloches du matin : éditez audioEvenements.matin.src
+*/
+const audioEvenements = {
+  gong:   'https://placeholder-audio.example/gong.mp3',    // Remplacez
+  cri:    'https://placeholder-audio.example/cri.mp3',     // Remplacez
+  matin:  'https://placeholder-audio.example/matin.mp3',  // Remplacez
+};
+
+function joueurSon(type) {
+  if (etat.muet) return;
+
+  if (type === 'ambiance') {
+    const audio = document.getElementById('audio-ambiance');
+    const piste = etat.pistesAmbiance[etat.piste];
+    if (piste.url) {
+      audio.src = piste.url;
+      audio.play().catch(() => {});
+    }
+    document.getElementById('indicateur-piste').textContent = piste.nom;
+    return;
+  }
+
+  const url = audioEvenements[type];
+  if (!url || url.includes('placeholder')) return;
+  const audio = document.getElementById('audio-evenement');
+  audio.src = url;
+  audio.play().catch(() => {});
+}
+
+function toggleAudio() {
+  etat.muet = !etat.muet;
+  document.getElementById('btn-audio-toggle').textContent = etat.muet ? '🔇' : '🔊';
+  const ambianceAudio = document.getElementById('audio-ambiance');
+  if (etat.muet) ambianceAudio.pause();
+  else ambianceAudio.play().catch(() => {});
+}
+
+function changerPiste(direction) {
+  etat.piste = (etat.piste + direction + etat.pistesAmbiance.length) % etat.pistesAmbiance.length;
+  joueurSon('ambiance');
+}
+
+/* ============================================================
+   NAVIGATION ENTRE ÉCRANS
+   ============================================================ */
+function changerEcran(idEcran) {
+  document.querySelectorAll('.ecran').forEach(e => e.classList.remove('actif'));
+  const cible = document.getElementById(idEcran);
+  if (cible) cible.classList.add('actif');
+}
+
+function revenirAccueil() {
+  // Réinitialisation
+  Object.assign(etat, {
+    estMJ: false, monId: null, monPseudo: null, monRole: null, sessionId: null,
+    joueurs: {}, ordreJoueurs: [], phase: 'attente', nuit: 0,
+    actionsNuit: {}, votes: {}, cibleSelectionne: null, voteSelectionne: null,
+  });
+
+  document.getElementById('zone-attente').style.display = 'none';
+  document.getElementById('panneau-creer').style.display = 'block';
+  document.getElementById('info-session').style.display = 'none';
+  document.getElementById('mj-pseudo').value = '';
+  document.getElementById('joueur-pseudo').value = '';
+  document.getElementById('session-id').value = '';
+
+  changerEcran('ecran-accueil');
+  arreterTimer();
+}
+
+/* ============================================================
+   NOTIFICATIONS TOAST
+   ============================================================ */
+function afficherToast(message, type = '') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.animation = 'toastEntree 0.3s ease reverse';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+/* ============================================================
+   UTILITAIRES
+   ============================================================ */
+function genererID() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+}
+
+function melangerTableau(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function jouveursVivantsSauf(exclure) {
+  return etat.ordreJoueurs.filter(id => {
+    const j = etat.joueurs[id];
+    return j && j.vivant && id !== exclure;
+  });
+}
+
+function mettreAJourStatutConnexion(connecte) {
+  const dot = document.getElementById('dot-connexion');
+  const texte = document.getElementById('texte-statut-connexion');
+  if (connecte) {
+    dot.classList.remove('deconnecte');
+    texte.textContent = `Connecté au Sanctuaire (${etat.sessionId || ''})`;
+  } else {
+    dot.classList.add('deconnecte');
+    texte.textContent = 'Connexion perdue...';
+  }
+}
+
+/* ============================================================
+   PARTICULES FLOTTANTES DE FOND
+   ============================================================ */
+function creerParticules() {
+  const colors = ['rgba(139,0,0,0.6)', 'rgba(180,140,12,0.4)', 'rgba(100,0,0,0.5)'];
+  for (let i = 0; i < 20; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = Math.random() * 100 + 'vw';
+    p.style.setProperty('--drift', (Math.random() - 0.5) * 60 + 'px');
+    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+    p.style.animationDuration = (8 + Math.random() * 12) + 's';
+    p.style.animationDelay = Math.random() * 10 + 's';
+    document.body.appendChild(p);
+  }
+}
+
+/* ============================================================
+   INITIALISATION
+   ============================================================ */
+document.addEventListener('DOMContentLoaded', () => {
+  creerParticules();
+
+  // Forcer les majuscules dans le champ session-id
+  const sessionInput = document.getElementById('session-id');
+  if (sessionInput) {
+    sessionInput.addEventListener('input', function() {
+      this.value = this.value.toUpperCase();
+    });
+  }
+
+  // Message console pour les développeurs
+  console.log(`
+  ╔══════════════════════════════════════════╗
+  ║   Loup-Garou : L'Éveil des Ombres       ║
+  ║   Configuration Ably :                   ║
+  ║   1. Obtenez une clé sur ably.com        ║
+  ║   2. Remplacez ABLY_API_KEY dans le JS   ║
+  ║   3. Décommentez la section ABLY         ║
+  ║   4. Passez MODE_DEMO à false            ║
+  ╚══════════════════════════════════════════╝
+  `);
+});
+
+</script>
 </body>
 </html>
